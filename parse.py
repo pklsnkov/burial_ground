@@ -9,11 +9,15 @@ excel_dataframe = pd.read_excel('D:\\study\\NextGIS\\source.xlsx')
 geopackage_geodataframe = gpd.GeoDataFrame(columns=excel_dataframe.columns.tolist() + ['geometry'])
 
 KEYWORDS = {
+    'морская миля': 'морск',
+    'кабельтов': 'кбт',
+    'км': 'км',
+    'м': 'м',
     'Окружность (с заданным радиусом)': 'радиус',
     'Пересечение полигонов': 'захоронение',
     'Окружность (с заданными координатами': 'координаты окружности',
     'Вычитание полигонов': 'исключенного',
-    'Объединение полигонов': 'используемого',
+    'Объединение полигонов': 'используемого'
 }
 
 RE_EXP = {
@@ -203,13 +207,13 @@ for i, row in excel_dataframe.iterrows():
         pattern_radius = RE_EXP['pattern_radius']
         radius_match = re.search(pattern_radius, coords_curr)
         if radius_match:
-            if "морск" in radius_match.group(2):
+            if KEYWORDS['морская миля'] in radius_match.group(2):
                 radius = float(radius_match.group(1)) * 1852
-            elif "кбт" in radius_match.group(2):
+            elif KEYWORDS['кабельтов'] in radius_match.group(2):
                 radius = float(radius_match.group(1)) * 185.2
-            elif "км" in radius_match.group(2):
+            elif KEYWORDS['км'] in radius_match.group(2):
                 radius = float(radius_match.group(1)) * 1000
-            elif "м" in radius_match.group(2):
+            elif KEYWORDS['м'] in radius_match.group(2):
                 radius = float(radius_match.group(1))
 
         coords_curr = coords_curr.replace(' ', '')
@@ -219,14 +223,11 @@ for i, row in excel_dataframe.iterrows():
             pattern = determinate_type_of_stroke(coords_curr)
             circle_burial = creating_point_or_circle(pattern, coords_curr_center, source_crs, radius)
             polygon_burial = creating_polygon(pattern, coords_curr_burial, source_crs)
-            try:
-                if not polygon_burial.is_valid:
-                    polygon_burial = polygon_burial.buffer(0)
-                if not circle_burial.is_valid:
-                    circle_burial = circle_burial.buffer(0)
-                polygon_burial = polygon_burial.intersection(circle_burial)
-            except Exception as e:
-                print("Ошибка при обрезании полигона:", e)
+            if not polygon_burial.is_valid:
+                polygon_burial = polygon_burial.buffer(0)
+            if not circle_burial.is_valid:
+                circle_burial = circle_burial.buffer(0)
+            polygon_burial = polygon_burial.intersection(circle_burial)
 
 
         elif keyword_circle in coords_curr:
