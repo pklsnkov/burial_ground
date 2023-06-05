@@ -1,12 +1,14 @@
 import math
 import re
+from transliterate import translit
 import geopandas as gpd
 import pandas as pd
 from pyproj import Transformer, CRS
 from shapely.geometry import Point, Polygon
 
 excel_dataframe = pd.read_excel('D:\\study\\NextGIS\\source.xlsx')
-geopackage_geodataframe = gpd.GeoDataFrame(columns=excel_dataframe.columns.tolist() + ['geometry'])
+latin_columns = [translit(column, 'ru', reversed=True) for column in excel_dataframe.columns.tolist()]
+geopackage_geodataframe = gpd.GeoDataFrame(columns=latin_columns + ['geometry'])
 
 KEYWORDS = {
     'морская миля': 'морск',
@@ -29,16 +31,16 @@ RE_EXP = {
         r"(\d+)[^.](\d+(?:\.\d+)?)[^.](\d+(?:\.\d+)?)*\D+(\d+)[^.](\d+(?:\.\d+)?)[^.](\d+(?:\.\d+)?)*"
 }
 
-CRS_MAP = {
-    "wgs-84": 'EPSG:4326',
-    "ск-42": 'EPSG:4284'
+CRS_POLYGON = {
+    'wgs-84': 'EPSG:4326',
+    'ск-42': 'EPSG:4284'
 }
 
 
 # Points must have Polygon or Point data type
 def crs_transform(points, crs):
     global transformed_points
-    target_crs = CRS_MAP["wgs-84"]
+    target_crs = CRS_POLYGON['wgs-84']
 
     if crs != target_crs:
         source_crs = CRS.from_string(crs)
@@ -72,8 +74,10 @@ def determinate_type_of_stroke(coordinates):
 def decimal_coordinates(deg, minute, sec):
     if sec == '':
         sec = 0.0
+    if minute == '':
+        minute = 0.0
 
-    if float(deg) > 180:
+    if float(deg) > 180 or len(deg) >= 4:
         deg_int = str(round(float(deg)))
         if float(deg) != 0 and float(minute) != 0 and float(sec) != 0:
             deg = (float(deg) // 10)
@@ -181,9 +185,9 @@ for i, row in excel_dataframe.iterrows():
 
     # processing CRS information
     if "ск-42" in coords_curr and "wgs-84" not in coords_curr:
-        source_crs = CRS_MAP["ск-42"]
+        source_crs = CRS_POLYGON["ск-42"]
     else:
-        source_crs = CRS_MAP["wgs-84"]
+        source_crs = CRS_POLYGON["wgs-84"]
 
     if "ск-42" in coords_curr and "wgs-84" in coords_curr:
         if coords_curr.find("ск-42") < coords_curr.find("wgs-84"):
@@ -270,5 +274,7 @@ for i, row in excel_dataframe.iterrows():
 
     if polygon_burial:
         geopackage_geodataframe.loc[i] = row.values.tolist() + [polygon_burial]
+
+geopackage_geodataframe.crs = CRS.from_string(CRS_POLYGON['wgs-84'])
 
 geopackage_geodataframe.to_file('D:\\study\\NextGIS\\file.gpkg', driver='GPKG', dtype={'geometry': 'Geometry'})
